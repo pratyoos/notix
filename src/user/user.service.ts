@@ -14,8 +14,8 @@ export class UserService {
         return this.userRepo.findOne({ where: { email } });
     }
 
-    async create(email: string, password: string) {
-    const user = this.userRepo.create({ email, password });
+    async create(email: string, password: string, role: string) {
+    const user = this.userRepo.create({ email, password, role });
     return this.userRepo.save(user);
   }
 }
