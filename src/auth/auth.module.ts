@@ -11,8 +11,8 @@ import { UserModule } from '../user/user.module';
     UserModule,
     PassportModule,
     JwtModule.register({
-      secret: 'notix-secret-key',
-      signOptions: { expiresIn: '1h' },
+      secret: process.env.JWT_SECRET ?? 'notix-secret-key',
+      signOptions: { expiresIn: parseInt(process.env.JWT_EXPIRATION ?? '3600', 10) },
     }),
   ],
   providers: [AuthService, JwtStrategy],
