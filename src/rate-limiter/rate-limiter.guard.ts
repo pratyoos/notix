@@ -7,9 +7,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
+import { Request } from 'express';
 
-interface AuthenticatedRequest {
-  user: {
+interface AuthenticatedRequest extends Request {
+  user?: {
     userId: number;
   };
 }
@@ -17,23 +18,24 @@ interface AuthenticatedRequest {
 @Injectable()
 export class RateLimiterGuard implements CanActivate {
   private readonly logger = new Logger(RateLimiterGuard.name);
-  private readonly limit = Number(process.env.RATE_LIMIT_MAX) ?? 5;
-  private readonly window = Number(process.env.RATE_LIMIT_WINDOW) ?? 60;
+  private readonly limit = Number(process.env.RATE_LIMIT_MAX) || 5;
+  private readonly window = Number(process.env.RATE_LIMIT_WINDOW) || 60;
 
   constructor(private redisService: RedisService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const redis = this.redisService.getClient();
+
     try {
-      const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-      const user = request.user;
+      const userId = request.user?.userId;
+      const ip =
+        request.ip ||
+        request.headers['x-forwarded-for']?.toString().split(',')[0] ||
+        'unknown';
 
-      if (!user || !user.userId) {
-        this.logger.warn('Rate limiter: No user found in request');
-        return true;
-      }
-
-      const key = `rate_limit:${user.userId}`;
-      const redis = this.redisService.getClient();
+      const identifier = userId ? `user:${userId}` : `ip:${ip}`;
+      const key = `rate_limit:${identifier}`;
 
       const current = await redis.incr(key);
 
@@ -43,20 +45,19 @@ export class RateLimiterGuard implements CanActivate {
 
       if (current > this.limit) {
         this.logger.warn(
-          `Rate limit exceeded for user ${user.userId}: ${current}/${this.limit}`,
+          `Rate limit exceeded for ${identifier}: ${current}/${this.limit}`,
         );
         throw new HttpException(
-          `Rate limit exceeded. Max ${this.limit} requests per ${this.window} seconds`,
+          `Too many requests. Max ${this.limit} requests per ${this.window} seconds`,
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }
 
       return true;
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      this.logger.error('Rate limiter error:', error);
+      if (error instanceof HttpException) throw error;
+
+      this.logger.error('Rate limiter internal error', error);
       return true;
     }
   }

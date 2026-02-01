@@ -16,6 +16,7 @@ declare global {
 @Controller()
 export class AppController {
 
+  @UseGuards(RateLimiterGuard)
   @Get()
   getHello(): Record<string, string> {
     return { message: 'Hello World!' };
