@@ -6,6 +6,7 @@ import databaseConfig from './config/database.config';
 import { AppController } from './app.controller';
 import { RateLimiterModule } from './rate-limiter/rate-limiter.module';
 import { RedisModule } from './redis/redis.module';
+import { NotificationModule } from './notification/notification.module';
 
 const db = databaseConfig().database;
 
@@ -25,6 +26,7 @@ const db = databaseConfig().database;
     UserModule,
     RedisModule,
     RateLimiterModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [],
